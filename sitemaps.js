@@ -8,6 +8,9 @@ sitemaps = {
   _config: {
     rootUrl: undefined
   },
+  _brands: [
+
+  ],
   _configHooks: {}
 };
 
@@ -24,6 +27,10 @@ sitemaps.config = function(key, value) {
   } else {
     configSet(key, value);
   }
+};
+
+sitemaps.addBrand = function(incomingURL, sitemapURL, brand) {
+  sitemaps._brands[incomingURL] = {url: sitemapURL, brand: brand};
 };
 
 if (typeof Number.lpad === "undefined") {
@@ -56,7 +63,7 @@ var Fiber = Npm.require('fibers');
 WebApp.connectHandlers.use(function(req, res, next) {
   new Fiber(function() {
     "use strict";
-    var out, pages, urls;
+    var out, pages, urls, brand, brand_information;
 
     urls = _.keys(sitemaps._list);
     if (!_.contains(urls, req.url))
@@ -68,12 +75,22 @@ WebApp.connectHandlers.use(function(req, res, next) {
     else if (!_.isArray(pages))
       throw new TypeError("sitemaps.add() expects an array or function");
 
+    brand_information = sitemaps._brands[req.headers.host];
+    if (brand_information){
+      sitemaps.config('rootUrl', brand_information.url);
+      brand = brand_information.brand;
+    }
+
     // The header is added later once we know which namespaces we need
     out = '';
     var namespaces = {};
 
     var w3cDateTimeTS, date;
     _.each(pages, function(page) {
+      // if a page has a specified brand, then only include it for that brand
+      if(page.brand && brand && page.brand != brand){
+        return;
+      }
 
       out += '  <url>\n'
         + '    <loc>' + prepareUrl(page.page) + '</loc>\n';
@@ -162,7 +179,7 @@ sitemaps.add = function(url, func) {
     url = '/' + url;
 
   sitemaps._list[url] = func;
-  robots.addLine('Sitemap: ' + prepareUrl(url));
+  robots.addLine('Sitemap: ' + url);
 };
 
 /*
